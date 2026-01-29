@@ -24,7 +24,6 @@ const createTestBusiness = async () => {
     name,
     wabaId,
     phoneId,
-    token
   );
 };
 
