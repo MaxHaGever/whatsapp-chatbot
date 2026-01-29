@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
-import Business from "../models/Business";
-import { mongo } from "mongoose";
+import Business from "../models/Business";   
+import { sendWhatsAppMessage } from "./sendWhatsAppMessage";  
 
 export function verifyWebhook(req: Request, res: Response) {
     const mode = req.query["hub.mode"];
@@ -37,13 +37,22 @@ export function verifyWebhook(req: Request, res: Response) {
  */
 
 
-export function handleWhatsappWebhook(req: Request, res: Response) {
+export async function handleWhatsappWebhook(req: Request, res: Response) {
+  res.sendStatus(200);
 
-    res.sendStatus(200);
+  const body = req.body;
 
-    const body = req.body;
-    console.log("Received WhatsApp webhook event:", body);
-    
+  const value = body.entry?.[0]?.changes?.[0]?.value;
+  const msg = value?.messages?.[0];
 
+  // statuses-only event (delivery/read) or something else
+  if (!msg) return;
 
+  const phoneId = value?.metadata?.phone_number_id;
+  const to = msg?.from;                 // the user who messaged you
+  const text = msg?.text?.body;         // only if msg.type === "text"
+
+  if (!phoneId || !to || !text) return;
+
+  await sendWhatsAppMessage(phoneId, to, text);
 }
