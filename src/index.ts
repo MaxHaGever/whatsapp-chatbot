@@ -1,6 +1,8 @@
-import "dotenv/config";
+import dotenv from "dotenv";
 import app from "./app";
 import { connectMongo } from "./db/mongo";
+
+dotenv.config();
 
 const PORT = Number(process.env.PORT ?? 8080);
 

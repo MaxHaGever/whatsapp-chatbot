@@ -1,8 +1,5 @@
 import mongoose from "mongoose";
 import createTestBusiness from "../utils/createTestBusiness";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 export async function connectMongo() {
   const uri = process.env.MONGO_URI;
