@@ -9,7 +9,10 @@ export interface IBusiness extends Document {
 
 const BusinessSchema = new Schema<IBusiness>(
     {
+        name: { type: String, required: true, trim: true },
         wabaId: { type: String, required: true, trim: true },
+        phoneId: { type: String, required: true, trim: true },
+        token: { type: String, required: true, trim: true },
     },
     {
         timestamps: true,

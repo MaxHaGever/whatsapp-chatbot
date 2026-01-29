@@ -1,4 +1,8 @@
 import mongoose from "mongoose";
+import createTestBusiness from "../utils/createTestBusiness";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 export async function connectMongo() {
   const uri = process.env.MONGO_URI;
@@ -9,4 +13,11 @@ export async function connectMongo() {
 
   await mongoose.connect(uri);
   console.log("✅ MongoDB connected");
+  try {
+    await createTestBusiness();
+  } catch (error) {
+    console.error("Error creating test business:", error);
+  }
 }
+
+

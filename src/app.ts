@@ -1,9 +1,11 @@
 import express from "express";
+import whatsAppRoutes from "./routes/whatsappRoutes";
 
 const app = express();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use("/whatsapp", whatsAppRoutes);
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ ok: true });
