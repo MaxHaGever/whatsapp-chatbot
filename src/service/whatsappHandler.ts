@@ -20,6 +20,7 @@ export function verifyWebhook(req: Request, res: Response) {
  * - uses your sendWhatsAppMessage(phoneId, to, text) which looks up token by phoneId in DB
  */
 export async function handleWhatsappWebhook(req: Request, res: Response) {
+    console.log("✅ WEBHOOK HIT", new Date().toISOString());
   // Always respond fast so Meta doesn't retry
   res.sendStatus(200);
 
