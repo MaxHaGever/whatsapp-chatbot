@@ -8,8 +8,6 @@ build/
 
 # env files (secrets)
 .env
-.env.* 
-!.env.example
 
 # logs
 npm-debug.log*
