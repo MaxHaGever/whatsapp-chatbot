@@ -6,7 +6,7 @@ export function verifyWebhook(req: Request, res: Response) {
     const mode = req.query["hub.mode"];
     const token = req.query["hub.verify_token"];
     const challenge = req.query["hub.challenge"];
-    if (mode === "subscribe" && token === process.env.WHATSAPP_TOKEN) {
+    if (mode === "subscribe" && token === process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN) {
         return res.status(200).send(challenge);
     }
     return res.status(403).send("Forbidden");
