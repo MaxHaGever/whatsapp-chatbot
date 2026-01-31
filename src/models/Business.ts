@@ -6,7 +6,10 @@ export interface IBusiness extends Document {
     phoneId: string;
     token: string;
     googleRefreshToken: string;
+    googleTokenExpiry: Date;
+    googleCalendarId: string;
     welcome: string;
+
 
 }
 
@@ -17,6 +20,8 @@ const BusinessSchema = new Schema<IBusiness>(
         phoneId: { type: String, required: true, trim: true },
         token: { type: String, required: true, trim: true },
         googleRefreshToken: { type: String, trim: true },
+        googleTokenExpiry: { type: Date, trim: true },
+        googleCalendarId: { type: String, trim: true },
         welcome: { type: String, required: true, trim: true, default: "Hi 👋 How can we help you today?" },
     },
     {
