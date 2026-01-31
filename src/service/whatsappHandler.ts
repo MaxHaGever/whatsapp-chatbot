@@ -2,8 +2,9 @@ import type { Request, Response } from "express";
 import Business from "../models/Business";   
 import Client from "../models/Client";
 import { sendWhatsAppMessage } from "./sendWhatsAppMessage";  
-import { isResetCommand } from "../rules/textCommands";
+import { isResetCommand , isEnglish , isRussian , isFrench} from "../rules/textCommands";
 import { extractIntent, extractIntentBetter } from "../ai/intents/extractIntent";
+import { buildWelcomeMessage } from "../messages/welcomeMessage";
 
 export function verifyWebhook(req: Request, res: Response) {
   const mode = req.query["hub.mode"];
@@ -57,18 +58,43 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     const text = msg?.text?.body?.trim();
     if (!text) return;
 
+    let lang = client.lang;
+
+    if (isEnglish(text)) {
+      lang = "en";
+      await Client.updateOne({ _id: client._id }, { $set: { lang } });
+    } else if (isRussian(text)) {
+      lang = "ru";
+      await Client.updateOne({ _id: client._id }, { $set: { lang } });
+    } else if (isFrench(text)) {
+      lang = "fr";
+      await Client.updateOne({ _id: client._id }, { $set: { lang } });
+    }
+
     if (isResetCommand(text)) {
       const welcomeMsg = doc.welcome || "Welcome!";
-      await sendWhatsAppMessage(businessPhoneId, from, welcomeMsg);
+      const builtWelcomeMsg = buildWelcomeMessage({lang, 
+        customWelcome: welcomeMsg,
+        businessName: doc.name,
+        includeLanguageChooser: true,
+    });
+      await sendWhatsAppMessage(businessPhoneId, from, builtWelcomeMsg);
       await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
       return;
     }
 
+    client
     let stage = client.stage ?? "welcome";
 
     if (stage === "welcome") {
       const welcomeMsg = doc.welcome || "Welcome!";
-      await sendWhatsAppMessage(businessPhoneId, from, welcomeMsg);
+      const builtWelcomeMsg = buildWelcomeMessage({lang, 
+        customWelcome: welcomeMsg,
+        businessName: doc.name,
+        includeLanguageChooser: true,
+    });
+
+      await sendWhatsAppMessage(businessPhoneId, from, builtWelcomeMsg);
       await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
       return;
     }
