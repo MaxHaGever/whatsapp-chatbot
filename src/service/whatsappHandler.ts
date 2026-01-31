@@ -57,7 +57,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
       textPreview: text.slice(0, 60),
     });
 
-    await sendWhatsAppMessage(phoneId, from, `You said: ${text}`);
+    await sendWhatsAppMessage(phoneId, from, `${text}`);
   } catch (err: any) {
     console.error("Webhook handler error:", err?.message || err);
   }
