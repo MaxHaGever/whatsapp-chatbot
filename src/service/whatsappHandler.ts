@@ -95,7 +95,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
         case "canceling":
           await Client.updateOne({ _id: client._id }, { $set: { stage: intent } });
           stage = intent;
-          return;
+          break;
 
         default:
           await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
