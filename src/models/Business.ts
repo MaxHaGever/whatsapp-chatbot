@@ -5,6 +5,8 @@ export interface IBusiness extends Document {
     wabaId: string;
     phoneId: string;
     token: string;
+    googleRefreshToken: string;
+
 }
 
 const BusinessSchema = new Schema<IBusiness>(
@@ -13,6 +15,7 @@ const BusinessSchema = new Schema<IBusiness>(
         wabaId: { type: String, required: true, trim: true },
         phoneId: { type: String, required: true, trim: true },
         token: { type: String, required: true, trim: true },
+        googleRefreshToken: { type: String, required: true, trim: true },
     },
     {
         timestamps: true,
