@@ -29,7 +29,12 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
 
     const from = msg?.from; 
     const type = msg?.type;
-    const text = msg?.text?.body;
+    const doc = await Business.findOne({ phoneId },);
+    if (!doc) {
+      console.log("Webhook: business not found");
+      return;
+    }
+    const text = doc.welcome;
 
     if (type !== "text") {
       console.log("Webhook: non-text message ignored:", { type });
