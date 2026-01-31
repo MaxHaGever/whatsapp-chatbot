@@ -64,7 +64,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
       return;
     }
 
-    const stage = client.stage ?? "welcome";
+    let stage = client.stage ?? "welcome";
 
     if (stage === "welcome") {
       const welcomeMsg = doc.welcome || "Welcome!";
@@ -84,6 +84,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
 
       if (intent === "unknown" || confidence < 0.6) {
         await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
+        stage = "idle";
         await sendWhatsAppMessage(businessPhoneId, from, "Sorry, I didn't understand that.");
         return;
       }
@@ -93,6 +94,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
         case "updating":
         case "canceling":
           await Client.updateOne({ _id: client._id }, { $set: { stage: intent } });
+          stage = intent;
           return;
 
         default:
@@ -100,6 +102,18 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
           return;
       }
     }
+
+    if (stage === "booking") {
+      await sendWhatsAppMessage(businessPhoneId, from, "Booking flow initiated.");
+      return;
+    } else if (stage === "updating") {
+      await sendWhatsAppMessage(businessPhoneId, from, "Updating flow initiated.");
+      return;
+    } else if (stage === "canceling") {
+      await sendWhatsAppMessage(businessPhoneId, from, "Canceling flow initiated.");
+      return;
+    }
+
   } catch (err: any) {
     console.error("Webhook handler error:", err?.message || err);
   }
