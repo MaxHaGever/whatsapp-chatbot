@@ -79,7 +79,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
         includeLanguageChooser: true,
     });
       await sendWhatsAppMessage(businessPhoneId, from, builtWelcomeMsg);
-      await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
+      await Client.updateOne({ _id: client._id }, { $set: { stage: "welcome" } });
       return;
     }
 
