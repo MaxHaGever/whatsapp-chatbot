@@ -15,7 +15,7 @@ const createTestBusiness = async () => {
     }
 
     const business = await Business.findOneAndUpdate(
-    { name }, // stable key
+    { phoneId }, // stable key
     { $set: { name, wabaId, phoneId, token } },
     { upsert: true, new: true }
   );
