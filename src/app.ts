@@ -1,6 +1,6 @@
 import express from "express";
 import whatsAppRoutes from "./routes/whatsappRoutes";
-import googleOAuthRoutes from "./routes/googleOauthRoutes";
+import googleOAuthRoutes from "./routes/googleOAuthRoutes";
 
 const app = express();
 
