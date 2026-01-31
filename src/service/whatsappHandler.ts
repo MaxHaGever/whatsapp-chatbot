@@ -2,6 +2,8 @@ import type { Request, Response } from "express";
 import Business from "../models/Business";   
 import Client from "../models/Client";
 import { sendWhatsAppMessage } from "./sendWhatsAppMessage";  
+import { isResetCommand } from "../rules/textCommands";
+import { extractIntent } from "../ai/intents/extractIntent";
 
 
 export function verifyWebhook(req: Request, res: Response) {
@@ -120,18 +122,28 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
       textPreview: text.slice(0, 60),
     });
 
-    //Later implement keyword-based routing
+  if(isResetCommand(text)) {
+    const welcomeMsg = doc.welcome || "Welcome!";
+    await sendWhatsAppMessage(businessPhoneId, from, welcomeMsg);
+    await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
+    return;
+  }
 
-  const stage = client?.stage;
+  let stage = client.stage;
 
   if (stage === "welcome") {
     const welcomeMsg = doc.welcome || "Welcome!";
     await sendWhatsAppMessage(businessPhoneId, from, welcomeMsg);
-    await Client.updateOne({ _id: client._id }, { stage: "idle" });
+    await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
     return;
   }
 
-    await sendWhatsAppMessage(businessPhoneId, from, `${text}`);
+  if (stage === "idle") {
+    const intent = await extractIntent(text);
+    if (intent) {
+      console.log("Webhook: detected intent", { intent });
+    }
+  }
   } catch (err: any) {
     console.error("Webhook handler error:", err?.message || err);
   }
