@@ -3,7 +3,8 @@ import Business from "../models/Business";
 import Client from "../models/Client";
 import { sendWhatsAppMessage } from "./sendWhatsAppMessage";  
 import { isResetCommand } from "../rules/textCommands";
-import { extractIntent } from "../ai/intents/extractIntent";
+import { extractIntent , extractIntentBetter } from "../ai/intents/extractIntent";
+import { send } from "node:process";
 
 
 export function verifyWebhook(req: Request, res: Response) {
@@ -139,11 +140,40 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
   }
 
   if (stage === "idle") {
-    const intent = await extractIntent(text);
-    if (intent) {
-      console.log("Webhook: detected intent", { intent });
-    }
+  let result = await extractIntent(text);
+
+  if (result.confidence < 0.7) {
+    result = await extractIntentBetter(text);
   }
+
+  const { intent, confidence } = result;
+
+  if (intent === "unknown" || confidence < 0.6) {
+    await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
+    await sendWhatsAppMessage(businessPhoneId, from, "Sorry, I didn't understand that.");
+    return;
+  }
+
+  switch (intent) {
+    case "booking":
+      await Client.updateOne({ _id: client._id }, { $set: { stage: "booking" } });
+      return;
+
+    case "updating":
+      await Client.updateOne({ _id: client._id }, { $set: { stage: "updating" } });
+      return;
+
+    case "canceling":
+      await Client.updateOne({ _id: client._id }, { $set: { stage: "canceling" } });
+      return;
+
+    default:
+      // Defensive fallback (shouldn't happen if intent is typed correctly)
+      await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
+      return;
+  }
+}
+
   } catch (err: any) {
     console.error("Webhook handler error:", err?.message || err);
   }

@@ -67,3 +67,35 @@ export async function extractIntent(text: string): Promise<IntentResult> {
  * }
  */
 
+export async function extractIntentBetter(text: string): Promise<IntentResult> {
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      { role: "system", content: INTENT_EXTRACTOR_SYSTEM_PROMPT },
+      { role: "user", content: text },
+    ],
+    temperature: 0,
+  });
+
+  const raw = stripJsonFences(response.choices[0]?.message?.content?.trim() ?? "");
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<IntentResult>;
+    const intent = parsed.intent;
+    const confidence = Number(parsed.confidence);
+
+    const okIntent =
+      intent === "booking" ||
+      intent === "updating" ||
+      intent === "canceling" ||
+      intent === "unknown";
+
+    const okConfidence = Number.isFinite(confidence) && confidence >= 0 && confidence <= 1;
+
+    if (okIntent && okConfidence) return { intent, confidence };
+  } catch (e) {
+    console.error("Error parsing intent response (strong):", e);
+  }
+
+  return { intent: "unknown", confidence: 0 };
+}
