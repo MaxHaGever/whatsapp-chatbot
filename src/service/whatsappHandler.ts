@@ -1,15 +1,19 @@
 import type { Request, Response } from "express";
 import Business from "../models/Business";   
+import Client from "../models/Client";
 import { sendWhatsAppMessage } from "./sendWhatsAppMessage";  
+import { isResetCommand } from "../rules/textCommands";
+import { extractIntent, extractIntentBetter } from "../ai/intents/extractIntent";
 
 export function verifyWebhook(req: Request, res: Response) {
-    const mode = req.query["hub.mode"];
-    const token = req.query["hub.verify_token"];
-    const challenge = req.query["hub.challenge"];
-    if (mode === "subscribe" && token === process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN) {
-        return res.status(200).send(challenge);
-    }
-    return res.status(403).send("Forbidden");
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  if (mode === "subscribe" && token === process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN) {
+    return res.status(200).send(challenge);
+  }
+  return res.status(403).send("Forbidden");
 }
 
 export async function handleWhatsappWebhook(req: Request, res: Response) {
@@ -19,45 +23,97 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     const body = req.body;
 
     const value = body?.entry?.[0]?.changes?.[0]?.value;
-    if (!value) {
-      console.log("Webhook: missing value");
-      return;
-    }
+    if (!value) return;
 
-    const phoneId = value?.metadata?.phone_number_id;
+    const businessPhoneId = value?.metadata?.phone_number_id;
+    if (!businessPhoneId) return;
+
+    const doc = await Business.findOne({ phoneId: businessPhoneId });
+    if (!doc) return;
+
     const msg = value?.messages?.[0];
+    const from = msg?.from;
+    if (!from) return;
 
-    const from = msg?.from; 
-    const type = msg?.type;
-    const doc = await Business.findOne({ phoneId },);
-    if (!doc) {
-      console.log("Webhook: business not found");
+    if (msg?.type !== "text") return;
+
+    const profileName = value?.contacts?.[0]?.profile?.name;
+
+    const client = await Client.findOneAndUpdate(
+      { businessId: doc._id, phone: from },
+      {
+        $setOnInsert: {
+          businessId: doc._id,
+          phone: from,
+        },
+        ...(profileName ? { $set: { name: profileName } } : {}),
+      },
+      {
+        upsert: true,
+        new: true,
+      }
+    );
+
+    const text = msg?.text?.body?.trim();
+    if (!text) return;
+
+    if (isResetCommand(text)) {
+      const welcomeMsg = doc.welcome || "Welcome!";
+      await sendWhatsAppMessage(businessPhoneId, from, welcomeMsg);
+      await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
       return;
     }
-    const text = doc.welcome;
 
-    if (type !== "text") {
-      console.log("Webhook: non-text message ignored:", { type });
+    let stage = client.stage ?? "welcome";
+
+    if (stage === "welcome") {
+      const welcomeMsg = doc.welcome || "Welcome!";
+      await sendWhatsAppMessage(businessPhoneId, from, welcomeMsg);
+      await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
       return;
     }
 
-    if (!phoneId) {
-      console.error("Webhook: missing metadata.phone_number_id");
+    if (stage === "idle") {
+      let result = await extractIntent(text);
+
+      if (result.confidence < 0.7) {
+        result = await extractIntentBetter(text);
+      }
+
+      const { intent, confidence } = result;
+
+      if (intent === "unknown" || confidence < 0.6) {
+        await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
+        stage = "idle";
+        await sendWhatsAppMessage(businessPhoneId, from, "Sorry, I didn't understand that.");
+        return;
+      }
+
+      switch (intent) {
+        case "booking":
+        case "updating":
+        case "canceling":
+          await Client.updateOne({ _id: client._id }, { $set: { stage: intent } });
+          stage = intent;
+          break;
+
+        default:
+          await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
+          return;
+      }
+    }
+
+    if (stage === "booking") {
+      await sendWhatsAppMessage(businessPhoneId, from, "Booking flow initiated.");
+      return;
+    } else if (stage === "updating") {
+      await sendWhatsAppMessage(businessPhoneId, from, "Updating flow initiated.");
+      return;
+    } else if (stage === "canceling") {
+      await sendWhatsAppMessage(businessPhoneId, from, "Canceling flow initiated.");
       return;
     }
 
-    if (!from || !text) {
-      console.error("Webhook: missing from/text", { from: !!from, text: !!text });
-      return;
-    }
-
-    console.log("Webhook: incoming text", {
-      phoneId,
-      from,
-      textPreview: text.slice(0, 60),
-    });
-
-    await sendWhatsAppMessage(phoneId, from, `${text}`);
   } catch (err: any) {
     console.error("Webhook handler error:", err?.message || err);
   }
