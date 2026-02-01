@@ -4,6 +4,7 @@ import Client from "../models/Client";
 import { sendWhatsAppMessage } from "./sendWhatsAppMessage";  
 import { isResetCommand } from "../rules/textCommands";
 import { extractIntent, extractIntentBetter } from "../ai/intents/extractIntent";
+import { getOrCreateClient , updateClientStage } from "./clientService";
 
 export function verifyWebhook(req: Request, res: Response) {
   const mode = req.query["hub.mode"];
@@ -39,20 +40,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
 
     const profileName = value?.contacts?.[0]?.profile?.name;
 
-    const client = await Client.findOneAndUpdate(
-      { businessId: doc._id, phone: from },
-      {
-        $setOnInsert: {
-          businessId: doc._id,
-          phone: from,
-        },
-        ...(profileName ? { $set: { name: profileName } } : {}),
-      },
-      {
-        upsert: true,
-        new: true,
-      }
-    );
+    const client = await getOrCreateClient(doc._id, from, profileName);
 
     const text = msg?.text?.body?.trim();
     if (!text) return;
@@ -60,7 +48,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     if (isResetCommand(text)) {
       const welcomeMsg = doc.welcome || "Welcome!";
       await sendWhatsAppMessage(businessPhoneId, from, welcomeMsg);
-      await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
+      await updateClientStage(client._id, "welcome");
       return;
     }
 
@@ -69,7 +57,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     if (stage === "welcome") {
       const welcomeMsg = doc.welcome || "Welcome!";
       await sendWhatsAppMessage(businessPhoneId, from, welcomeMsg);
-      await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
+      await updateClientStage(client._id, "idle");
       return;
     }
 
@@ -83,8 +71,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
       const { intent, confidence } = result;
 
       if (intent === "unknown" || confidence < 0.6) {
-        await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
-        stage = "idle";
+        await updateClientStage(client._id, "idle");
         await sendWhatsAppMessage(businessPhoneId, from, "Sorry, I didn't understand that.");
         return;
       }
@@ -93,12 +80,12 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
         case "booking":
         case "updating":
         case "canceling":
-          await Client.updateOne({ _id: client._id }, { $set: { stage: intent } });
+          await updateClientStage(client._id, intent);
           stage = intent;
           break;
 
         default:
-          await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
+          await updateClientStage(client._id, "idle");
           return;
       }
     }
