@@ -51,7 +51,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
 
     if (isResetCommand(text)) {
       await sendWelcomeMessage(businessPhoneId, from, doc.welcome);
-      await updateClientStage(client._id, "welcome");
+      await updateClientStage(client._id, "idle");
       return;
     }
 
