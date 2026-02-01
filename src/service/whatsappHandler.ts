@@ -2,13 +2,14 @@ import type { Request, Response } from "express";
 import Business from "../models/Business";   
 import { sendWhatsAppMessage } from "./sendWhatsAppMessage";  
 import { isResetCommand } from "../rules/textCommands";
-import { getOrCreateClient , updateClientStage } from "./clientService";
+import { getOrCreateClient , handleClientUpsertWithIdleCheck, updateClientStage } from "./clientService";
 import { extractIntentWithFallback } from "../utils/extractIntentWithFallback";
 import { sendWelcomeMessage } from "../messages/welcomeMessage";
 import { intentToStageMap } from "../utils/intentStageMap";
 import { handleBookingFlow } from "../flows/bookingFlow";
 import { handleUpdatingFlow } from "../flows/updatingFlow";
 import { handleCancelingFlow } from "../flows/cancelingFlow";
+import { DateTime } from "luxon";
 
 export function verifyWebhook(req: Request, res: Response) {
   const mode = req.query["hub.mode"];
@@ -44,7 +45,13 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
 
     const profileName = value?.contacts?.[0]?.profile?.name;
 
-    const client = await getOrCreateClient(doc._id, from, profileName);
+    const client = await handleClientUpsertWithIdleCheck(
+    doc._id,
+    from,
+    profileName,
+    15,         // idle threshold in minutes
+    "welcome"  // stage to reset to
+  );
 
     const text = msg?.text?.body?.trim();
     if (!text) return;
@@ -55,7 +62,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
       return;
     }
 
-    let stage = client.stage ?? "welcome";
+    let stage = client.stage;
 
     if (stage === "welcome") {
       await sendWelcomeMessage(businessPhoneId, from, doc.welcome);
