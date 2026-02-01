@@ -6,6 +6,9 @@ import { getOrCreateClient , updateClientStage } from "./clientService";
 import { extractIntentWithFallback } from "../utils/extractIntentWithFallback";
 import { sendWelcomeMessage } from "../messages/welcomeMessage";
 import { intentToStageMap } from "../utils/intentStageMap";
+import { handleBookingFlow } from "../flows/bookingFlow";
+import { handleUpdatingFlow } from "../flows/updatingFlow";
+import { handleCancelingFlow } from "../flows/cancelingFlow";
 
 export function verifyWebhook(req: Request, res: Response) {
   const mode = req.query["hub.mode"];
@@ -79,13 +82,13 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     }
 
     if (stage === "booking") {
-      await sendWhatsAppMessage(businessPhoneId, from, "Booking flow initiated.");
+      await handleBookingFlow({ business: doc, client: client, message: text });
       return;
     } else if (stage === "updating") {
-      await sendWhatsAppMessage(businessPhoneId, from, "Updating flow initiated.");
+      await handleUpdatingFlow({ business: doc, client: client, message: text });
       return;
     } else if (stage === "canceling") {
-      await sendWhatsAppMessage(businessPhoneId, from, "Canceling flow initiated.");
+      await handleCancelingFlow({ business: doc, client: client, message: text });
       return;
     }
 
