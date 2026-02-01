@@ -5,6 +5,7 @@ import { sendWhatsAppMessage } from "./sendWhatsAppMessage";
 import { isResetCommand } from "../rules/textCommands";
 import { extractIntent, extractIntentBetter } from "../ai/intents/extractIntent";
 import { getOrCreateClient , updateClientStage } from "./clientService";
+import { extractIntentWithFallback } from "../utils/extractIntentWithFallback";
 
 export function verifyWebhook(req: Request, res: Response) {
   const mode = req.query["hub.mode"];
@@ -62,11 +63,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     }
 
     if (stage === "idle") {
-      let result = await extractIntent(text);
-
-      if (result.confidence < 0.7) {
-        result = await extractIntentBetter(text);
-      }
+      let result = await extractIntentWithFallback(text);
 
       const { intent, confidence } = result;
 
@@ -83,10 +80,6 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
           await updateClientStage(client._id, intent);
           stage = intent;
           break;
-
-        default:
-          await updateClientStage(client._id, "idle");
-          return;
       }
     }
 
