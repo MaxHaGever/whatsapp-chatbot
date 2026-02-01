@@ -15,6 +15,11 @@ export async function getOrCreateClient(businessId: mongoose.Types.ObjectId, pho
   );
 }
 
-export async function updateClientStage(clientId: mongoose.Types.ObjectId, stage: string) {
-  return Client.updateOne({ _id: clientId }, { $set: { stage } });
+export async function updateClientStage(clientId: mongoose.Types.ObjectId, newStage: string) {
+    const client = await Client.findById(clientId);
+    if (!client) return;
+    if (client.stage === newStage) return;
+       
+    console.log(`Stage change for ${client.phone}: ${client.stage} → ${newStage}`);
+    return Client.updateOne({ _id: clientId }, { $set: { stage: newStage } });
 }

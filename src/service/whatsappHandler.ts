@@ -1,11 +1,11 @@
 import type { Request, Response } from "express";
 import Business from "../models/Business";   
-import Client from "../models/Client";
 import { sendWhatsAppMessage } from "./sendWhatsAppMessage";  
 import { isResetCommand } from "../rules/textCommands";
-import { extractIntent, extractIntentBetter } from "../ai/intents/extractIntent";
 import { getOrCreateClient , updateClientStage } from "./clientService";
 import { extractIntentWithFallback } from "../utils/extractIntentWithFallback";
+import { sendWelcomeMessage } from "../messages/welcomeMessage";
+import { intentToStageMap } from "../utils/intentStageMap";
 
 export function verifyWebhook(req: Request, res: Response) {
   const mode = req.query["hub.mode"];
@@ -47,8 +47,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     if (!text) return;
 
     if (isResetCommand(text)) {
-      const welcomeMsg = doc.welcome || "Welcome!";
-      await sendWhatsAppMessage(businessPhoneId, from, welcomeMsg);
+      await sendWelcomeMessage(businessPhoneId, from, doc.welcome);
       await updateClientStage(client._id, "welcome");
       return;
     }
@@ -56,8 +55,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     let stage = client.stage ?? "welcome";
 
     if (stage === "welcome") {
-      const welcomeMsg = doc.welcome || "Welcome!";
-      await sendWhatsAppMessage(businessPhoneId, from, welcomeMsg);
+      await sendWelcomeMessage(businessPhoneId, from, doc.welcome);
       await updateClientStage(client._id, "idle");
       return;
     }
@@ -73,13 +71,10 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
         return;
       }
 
-      switch (intent) {
-        case "booking":
-        case "updating":
-        case "canceling":
-          await updateClientStage(client._id, intent);
-          stage = intent;
-          break;
+      const nextStage = intentToStageMap[intent];
+      if (nextStage) {
+        await updateClientStage(client._id, nextStage);
+        stage = nextStage;
       }
     }
 
