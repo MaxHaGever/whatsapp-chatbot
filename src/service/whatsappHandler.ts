@@ -1,9 +1,14 @@
 import type { Request, Response } from "express";
 import Business from "../models/Business";   
-import Client from "../models/Client";
 import { sendWhatsAppMessage } from "./sendWhatsAppMessage";  
 import { isResetCommand } from "../rules/textCommands";
-import { extractIntent, extractIntentBetter } from "../ai/intents/extractIntent";
+import { getOrCreateClient , updateClientStage } from "./clientService";
+import { extractIntentWithFallback } from "../utils/extractIntentWithFallback";
+import { sendWelcomeMessage } from "../messages/welcomeMessage";
+import { intentToStageMap } from "../utils/intentStageMap";
+import { handleBookingFlow } from "../flows/bookingFlow";
+import { handleUpdatingFlow } from "../flows/updatingFlow";
+import { handleCancelingFlow } from "../flows/cancelingFlow";
 
 export function verifyWebhook(req: Request, res: Response) {
   const mode = req.query["hub.mode"];
@@ -39,78 +44,51 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
 
     const profileName = value?.contacts?.[0]?.profile?.name;
 
-    const client = await Client.findOneAndUpdate(
-      { businessId: doc._id, phone: from },
-      {
-        $setOnInsert: {
-          businessId: doc._id,
-          phone: from,
-        },
-        ...(profileName ? { $set: { name: profileName } } : {}),
-      },
-      {
-        upsert: true,
-        new: true,
-      }
-    );
+    const client = await getOrCreateClient(doc._id, from, profileName);
 
     const text = msg?.text?.body?.trim();
     if (!text) return;
 
     if (isResetCommand(text)) {
-      const welcomeMsg = doc.welcome || "Welcome!";
-      await sendWhatsAppMessage(businessPhoneId, from, welcomeMsg);
-      await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
+      await sendWelcomeMessage(businessPhoneId, from, doc.welcome);
+      await updateClientStage(client._id, "idle");
       return;
     }
 
     let stage = client.stage ?? "welcome";
 
     if (stage === "welcome") {
-      const welcomeMsg = doc.welcome || "Welcome!";
-      await sendWhatsAppMessage(businessPhoneId, from, welcomeMsg);
-      await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
+      await sendWelcomeMessage(businessPhoneId, from, doc.welcome);
+      await updateClientStage(client._id, "idle");
       return;
     }
 
     if (stage === "idle") {
-      let result = await extractIntent(text);
-
-      if (result.confidence < 0.7) {
-        result = await extractIntentBetter(text);
-      }
+      let result = await extractIntentWithFallback(text);
 
       const { intent, confidence } = result;
 
       if (intent === "unknown" || confidence < 0.6) {
-        await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
-        stage = "idle";
+        await updateClientStage(client._id, "idle");
         await sendWhatsAppMessage(businessPhoneId, from, "Sorry, I didn't understand that.");
         return;
       }
 
-      switch (intent) {
-        case "booking":
-        case "updating":
-        case "canceling":
-          await Client.updateOne({ _id: client._id }, { $set: { stage: intent } });
-          stage = intent;
-          break;
-
-        default:
-          await Client.updateOne({ _id: client._id }, { $set: { stage: "idle" } });
-          return;
+      const nextStage = intentToStageMap[intent];
+      if (nextStage) {
+        await updateClientStage(client._id, nextStage);
+        stage = nextStage;
       }
     }
 
     if (stage === "booking") {
-      await sendWhatsAppMessage(businessPhoneId, from, "Booking flow initiated.");
+      await handleBookingFlow({ business: doc, client: client, message: text });
       return;
     } else if (stage === "updating") {
-      await sendWhatsAppMessage(businessPhoneId, from, "Updating flow initiated.");
+      await handleUpdatingFlow({ business: doc, client: client, message: text });
       return;
     } else if (stage === "canceling") {
-      await sendWhatsAppMessage(businessPhoneId, from, "Canceling flow initiated.");
+      await handleCancelingFlow({ business: doc, client: client, message: text });
       return;
     }
 
