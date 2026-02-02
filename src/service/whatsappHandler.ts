@@ -117,7 +117,6 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
 async function handleLanguageSelection(businessId: mongoose.Types.ObjectId, phone: string, payload: string, profileName?: string) {
     const selectedLanguage = payload;
     const langMap: Record<string, string> = {
-        lang_en: "en",
         lang_ru: "ru",
         lang_fr: "fr",
         lang_he: "he"

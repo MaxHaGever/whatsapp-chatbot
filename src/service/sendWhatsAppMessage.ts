@@ -57,11 +57,11 @@ export async function sendClientLanguageSelectionMessage(phoneId: string, to: st
       },
       action: {
         buttons: [
-          {
+                      {
             type: "reply",
             reply: {
-              id: "lang_en",
-              title: "English"
+              id: "lang_he",
+              title: "עברית"
             }
           },
           {
@@ -76,13 +76,6 @@ export async function sendClientLanguageSelectionMessage(phoneId: string, to: st
             reply: {
               id: "lang_fr",
               title: "Français"
-            }
-          },
-          {
-            type: "reply",
-            reply: {
-              id: "lang_he",
-              title: "עברית"
             }
           },
         ]
