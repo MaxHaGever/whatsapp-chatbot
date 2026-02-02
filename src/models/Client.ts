@@ -7,6 +7,7 @@ export interface IClient extends Document {
     phone: string;
     businessId: Types.ObjectId;
     stage: ClientStage;
+    lastInteraction: Date;
 }
 
 const ClientSchema = new Schema<IClient>(
@@ -14,7 +15,8 @@ const ClientSchema = new Schema<IClient>(
         name: { type: String, trim: true },
         phone: { type: String, required: true, trim: true },
         businessId: { type: Schema.Types.ObjectId, required: true, ref: 'Business' },
-        stage: { type: String, enum: CLIENT_STAGES, default: "welcome" }
+        stage: { type: String, enum: CLIENT_STAGES, default: "welcome" },
+        lastInteraction: { type: Date, default: Date.now },
     },
     {
         timestamps: true,
