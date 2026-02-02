@@ -1,8 +1,13 @@
 import type { Request, Response } from "express";
-import Business from "../models/Business";   
-import { sendWhatsAppMessage , sendClientLanguageSelectionMessage } from "./sendWhatsAppMessage";  
+import Business from "../models/Business";
+import { sendWhatsAppMessage, sendClientLanguageSelectionMessage } from "./sendWhatsAppMessage";
 import { isResetCommand } from "../rules/textCommands";
-import { getOrCreateClient , handleClientUpsertWithIdleCheck, isClientFirst, updateClientStage } from "./clientService";
+import {
+  getOrCreateClient,
+  handleClientUpsertWithIdleCheck,
+  isClientFirst,
+  updateClientStage
+} from "./clientService";
 import { extractIntentWithFallback } from "../utils/extractIntentWithFallback";
 import { sendWelcomeMessage } from "../messages/welcomeMessage";
 import { intentToStageMap } from "../utils/intentStageMap";
@@ -27,7 +32,6 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
 
   try {
     const body = req.body;
-
     const value = body?.entry?.[0]?.changes?.[0]?.value;
     if (!value) return;
 
@@ -40,36 +44,30 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     const msg = value?.messages?.[0];
     const from = msg?.from;
     if (!from) return;
+
     const profileName = value?.contacts?.[0]?.profile?.name;
-    if(msg?.type === "button"){
+
+    // Handle button-based language selection
+    if (msg?.type === "button") {
       await handleLanguageSelection(doc._id, from, msg.button.payload, profileName);
       return;
     }
+
     if (msg?.type !== "text") return;
-    
+
     let client;
 
     if (await isClientFirst(from)) {
-  client = await getOrCreateClient({
-    businessId: doc._id,
-    phone: from,
-    lastInteraction: new Date(),
-    language: "he",
-    profileName
-  });
-
-  await sendClientLanguageSelectionMessage(businessPhoneId, from);
-} else {
-  client = await handleClientUpsertWithIdleCheck(
-    doc._id,
-    from,
-    profileName,
-    "welcome"
-  );
-}
-
-
-   
+      client = await getOrCreateClient(doc._id, from, new Date(), "he", profileName);
+      await sendClientLanguageSelectionMessage(businessPhoneId, from);
+    } else {
+      client = await handleClientUpsertWithIdleCheck(
+        doc._id,
+        from,
+        profileName,
+        "welcome"
+      );
+    }
 
     const text = msg?.text?.body?.trim();
     if (!text) return;
@@ -89,8 +87,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     }
 
     if (stage === "idle") {
-      let result = await extractIntentWithFallback(text);
-
+      const result = await extractIntentWithFallback(text);
       const { intent, confidence } = result;
 
       if (intent === "unknown" || confidence < 0.6) {
@@ -107,14 +104,11 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     }
 
     if (stage === "booking") {
-      await handleBookingFlow({ business: doc, client: client, message: text });
-      return;
+      await handleBookingFlow({ business: doc, client, message: text });
     } else if (stage === "updating") {
-      await handleUpdatingFlow({ business: doc, client: client, message: text });
-      return;
+      await handleUpdatingFlow({ business: doc, client, message: text });
     } else if (stage === "canceling") {
-      await handleCancelingFlow({ business: doc, client: client, message: text });
-      return;
+      await handleCancelingFlow({ business: doc, client, message: text });
     }
 
   } catch (err: any) {
@@ -128,7 +122,7 @@ async function handleLanguageSelection(
   payload: string,
   profileName?: string
 ) {
-  const langMap: Record<string, "he" | "en" | "ru" | "fr"> = {
+  const langMap: Record<string, "he" | "ru" | "fr"> = {
     lang_ru: "ru",
     lang_fr: "fr",
     lang_he: "he"
@@ -136,18 +130,11 @@ async function handleLanguageSelection(
 
   const language = langMap[payload];
   if (!language) {
-    console.warn(`Invalid language payload: ${payload}`);
+    console.warn("Invalid language payload received:", payload);
     return;
   }
 
-  console.log(`Language set for ${phone}: ${language}`);
+  console.log(`Language selected by ${phone}: ${language}`);
 
-  await getOrCreateClient({
-    businessId,
-    phone,
-    lastInteraction: new Date(),
-    language,
-    profileName
-  });
+  await getOrCreateClient(businessId, phone, new Date(), language, profileName);
 }
-

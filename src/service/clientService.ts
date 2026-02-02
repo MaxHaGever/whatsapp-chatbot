@@ -3,25 +3,13 @@ import Client from "../models/Client";
 import { DateTime } from "luxon";
 import type { ClientStage } from "../models/Client";
 
-interface ClientInitParams {
-  businessId: mongoose.Types.ObjectId;
-  phone: string;
-  lastInteraction: Date;
-  language?: "he" | "en" | "ru" | "fr";
-  profileName?: string;
-}
-
-/**
- * Safely creates a client or returns existing one
- */
-export async function getOrCreateClient({
-  businessId,
-  phone,
-  lastInteraction,
-  language = "he",
-  profileName
-}: ClientInitParams) {
-  // 🔍 DEBUG LOGGING
+export async function getOrCreateClient(
+  businessId: mongoose.Types.ObjectId,
+  phone: string,
+  lastInteraction: Date,
+  language: "he" | "ru" | "fr" = "he",
+  profileName?: string
+) {
   console.log("getOrCreateClient called with:", {
     businessId,
     phone,
@@ -29,11 +17,6 @@ export async function getOrCreateClient({
     language,
     profileName
   });
-
-  const allowedLanguages = ["he", "en", "ru", "fr"];
-  if (!allowedLanguages.includes(language)) {
-    throw new Error(`❌ Invalid language: "${language}"`);
-  }
 
   return Client.findOneAndUpdate(
     { businessId, phone },
@@ -54,9 +37,6 @@ export async function getOrCreateClient({
   );
 }
 
-/**
- * Handles idle logic and client upsert
- */
 export async function handleClientUpsertWithIdleCheck(
   businessId: mongoose.Types.ObjectId,
   phone: string,
@@ -80,13 +60,9 @@ export async function handleClientUpsertWithIdleCheck(
       language: "he"
     };
 
-    // 🔍 DEBUG LOGGING
-    console.log("Creating new client with:", newClient);
+    console.log("Creating new client:", newClient);
 
-    client = await Client.create(newClient);
-
-    console.log(`🆕 New client created: ${phone}`);
-    return client;
+    return await Client.create(newClient);
   }
 
   const last = DateTime.fromJSDate(client.lastInteraction);
@@ -103,9 +79,6 @@ export async function handleClientUpsertWithIdleCheck(
   return client;
 }
 
-/**
- * Checks if a phone is a first-time client
- */
 export async function isClientFirst(phone: string): Promise<boolean> {
   const client = await Client.findOne({ phone });
   return !client;
