@@ -2,32 +2,32 @@ import axios from "axios";
 import Business from "../models/Business";
 
 export async function sendWhatsAppMessage(phoneId: string, to: string, text: string) {
+  const token = (await Business.findOne({ phoneId }))?.token;
+  if (!token) {
+    console.error("No token found for phoneId:", phoneId);
+    return;
+  }
 
-    const token = (await Business.findOne({ phoneId }))?.token;
-    if (!token) {
-        console.error("No token found for phoneId:", phoneId);
-        return;
-    }
-    const version = process.env.GRAPH_VERSION || "v22.0";
+  const version = process.env.GRAPH_VERSION || "v19.0";
+  const url = `https://graph.facebook.com/${version}/${phoneId}/messages`;
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json"
+  };
 
-    const url = `https://graph.facebook.com/${version}/${phoneId}/messages`;
-    const headers = {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-    };
-    const body = {
-        messaging_product: "whatsapp",
-        to,
-        type: "text",
-        text: { body: text }
-    };
+  const body = {
+    messaging_product: "whatsapp",
+    to,
+    type: "text",
+    text: { body: text }
+  };
 
-    try {
-        const response = await axios.post(url, body, { headers });
-        console.log("WhatsApp message sent successfully:", response.data);
-    } catch (error) {
-        console.error("Error sending WhatsApp message:", error);
-    }
+  try {
+    const response = await axios.post(url, body, { headers });
+    console.log("WhatsApp message sent successfully:", response.data);
+  } catch (error: any) {
+    console.error("Error sending WhatsApp message:", error.response?.data || error.message || error);
+  }
 }
 
 export async function sendClientLanguageSelectionMessage(phoneId: string, to: string) {
@@ -51,33 +51,29 @@ export async function sendClientLanguageSelectionMessage(phoneId: string, to: st
     to,
     type: "interactive",
     interactive: {
-      type: "button",
+      type: "list",
+      header: {
+        type: "text",
+        text: "Language Selection 🌍"
+      },
       body: {
-        text: "אנא בחרו שפה"
+        text: "Please choose your preferred language:"
+      },
+      footer: {
+        text: "You can change it later."
       },
       action: {
-        buttons: [
-                      {
-            type: "reply",
-            reply: {
-              id: "lang_he",
-              title: "עברית"
-            }
-          },
+        button: "Choose Language",
+        sections: [
           {
-            type: "reply",
-            reply: {
-              id: "lang_ru",
-              title: "Русский"
-            }
-          },
-          {
-            type: "reply",
-            reply: {
-              id: "lang_fr",
-              title: "Français"
-            }
-          },
+            title: "Available Languages",
+            rows: [
+              { id: "lang_he", title: "עברית", description: "Hebrew" },
+              { id: "lang_en", title: "English", description: "English" },
+              { id: "lang_ru", title: "Русский", description: "Russian" },
+              { id: "lang_fr", title: "Français", description: "French" }
+            ]
+          }
         ]
       }
     }
@@ -85,8 +81,8 @@ export async function sendClientLanguageSelectionMessage(phoneId: string, to: st
 
   try {
     const response = await axios.post(url, body, { headers });
-    console.log("Language selection message sent successfully:", response.data);
+    console.log("Language list message sent successfully:", response.data);
   } catch (error: any) {
-    console.error("Error sending language selection message:", error.response?.data || error.message || error);
+    console.error("Error sending language list message:", error.response?.data || error.message || error);
   }
 }

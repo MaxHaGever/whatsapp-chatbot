@@ -7,7 +7,7 @@ export async function getOrCreateClient(
   businessId: mongoose.Types.ObjectId,
   phone: string,
   lastInteraction: Date,
-  language: "he" | "ru" | "fr" = "he",
+  language: "he" | "en" | "ru" | "fr" = "he",
   profileName?: string
 ) {
   console.log("getOrCreateClient called with:", {

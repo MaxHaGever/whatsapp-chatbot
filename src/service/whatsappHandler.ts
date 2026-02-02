@@ -47,9 +47,10 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
 
     const profileName = value?.contacts?.[0]?.profile?.name;
 
-    // Handle button-based language selection
-    if (msg?.type === "button") {
-      await handleLanguageSelection(doc._id, from, msg.button.payload, profileName);
+    // ✅ Handle list reply for language
+    if (msg?.type === "interactive" && msg.interactive?.type === "list_reply") {
+      const payload = msg.interactive.list_reply.id;
+      await handleLanguageSelection(doc._id, from, payload, profileName);
       return;
     }
 
@@ -122,7 +123,8 @@ async function handleLanguageSelection(
   payload: string,
   profileName?: string
 ) {
-  const langMap: Record<string, "he" | "ru" | "fr"> = {
+  const langMap: Record<string, "he" | "en" | "ru" | "fr"> = {
+    lang_en: "en",
     lang_ru: "ru",
     lang_fr: "fr",
     lang_he: "he"
@@ -136,5 +138,10 @@ async function handleLanguageSelection(
 
   console.log(`Language selected by ${phone}: ${language}`);
 
-  await getOrCreateClient(businessId, phone, new Date(), language, profileName);
+  const client = await getOrCreateClient(businessId, phone, new Date(), language, profileName);
+
+  await updateClientStage(client._id, "welcome");
+
+  await sendWhatsAppMessage(client.businessId.toString(), phone, `Language set to ${language.toUpperCase()}.`);
+  await sendWelcomeMessage(client.businessId.toString(), phone, "Thanks for selecting your language. How can I help you?");
 }
