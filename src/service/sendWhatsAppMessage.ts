@@ -54,16 +54,16 @@ export async function sendClientLanguageSelectionMessage(phoneId: string, to: st
       type: "list",
       header: {
         type: "text",
-        text: "Language Selection 🌍"
+        text: "בחירת שפה 🌍 "
       },
       body: {
-        text: "Please choose your preferred language:"
+        text: "אנא בחרו את השפה המועדפת עליכם:"
       },
       footer: {
-        text: "You can change it later."
+        text: "השפה תישמר לשיחות הבאות."
       },
       action: {
-        button: "Choose Language",
+        button: "בחר שפה",
         sections: [
           {
             title: "Available Languages",
