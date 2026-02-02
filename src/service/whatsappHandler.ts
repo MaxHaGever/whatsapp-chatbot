@@ -49,9 +49,9 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     
     let client;
 
-    if(await isClientFirst(from)){
-      client = await getOrCreateClient(doc._id, from, new Date(), profileName);
-      await sendClientLanguageSelectionMessage(businessPhoneId , from);
+    if (await isClientFirst(from)) {
+  client = await getOrCreateClient(doc._id, from, new Date(), "he", profileName);
+  await sendClientLanguageSelectionMessage(businessPhoneId, from);
     } else {
          client = await handleClientUpsertWithIdleCheck(
     doc._id,
