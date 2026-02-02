@@ -1,15 +1,20 @@
 import type { Request, Response } from "express";
-import Business from "../models/Business";   
-import { sendWhatsAppMessage } from "./sendWhatsAppMessage";  
+import Business from "../models/Business";
+import { sendWhatsAppMessage, sendClientLanguageSelectionMessage } from "./sendWhatsAppMessage";
 import { isResetCommand } from "../rules/textCommands";
-import { getOrCreateClient , handleClientUpsertWithIdleCheck, updateClientStage } from "./clientService";
+import {
+  getOrCreateClient,
+  handleClientUpsertWithIdleCheck,
+  isClientFirst,
+  updateClientStage
+} from "./clientService";
 import { extractIntentWithFallback } from "../utils/extractIntentWithFallback";
 import { sendWelcomeMessage } from "../messages/welcomeMessage";
 import { intentToStageMap } from "../utils/intentStageMap";
 import { handleBookingFlow } from "../flows/bookingFlow";
 import { handleUpdatingFlow } from "../flows/updatingFlow";
 import { handleCancelingFlow } from "../flows/cancelingFlow";
-import { DateTime } from "luxon";
+import mongoose from "mongoose";
 
 export function verifyWebhook(req: Request, res: Response) {
   const mode = req.query["hub.mode"];
@@ -27,7 +32,6 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
 
   try {
     const body = req.body;
-
     const value = body?.entry?.[0]?.changes?.[0]?.value;
     if (!value) return;
 
@@ -41,16 +45,30 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     const from = msg?.from;
     if (!from) return;
 
-    if (msg?.type !== "text") return;
-
     const profileName = value?.contacts?.[0]?.profile?.name;
 
-    const client = await handleClientUpsertWithIdleCheck(
-    doc._id,
-    from,
-    profileName,   
-    "welcome"  
-  );
+    // ✅ Handle list reply for language
+    if (msg?.type === "interactive" && msg.interactive?.type === "list_reply") {
+      const payload = msg.interactive.list_reply.id;
+      await handleLanguageSelection(doc._id, from, payload, profileName);
+      return;
+    }
+
+    if (msg?.type !== "text") return;
+
+    let client;
+
+    if (await isClientFirst(from)) {
+      client = await getOrCreateClient(doc._id, from, new Date(), "he", profileName);
+      await sendClientLanguageSelectionMessage(doc._id, from);
+    } else {
+      client = await handleClientUpsertWithIdleCheck(
+        doc._id,
+        from,
+        profileName,
+        "welcome"
+      );
+    }
 
     const text = msg?.text?.body?.trim();
     if (!text) return;
@@ -70,8 +88,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     }
 
     if (stage === "idle") {
-      let result = await extractIntentWithFallback(text);
-
+      const result = await extractIntentWithFallback(text);
       const { intent, confidence } = result;
 
       if (intent === "unknown" || confidence < 0.6) {
@@ -88,17 +105,47 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     }
 
     if (stage === "booking") {
-      await handleBookingFlow({ business: doc, client: client, message: text });
-      return;
+      await handleBookingFlow({ business: doc, client, message: text });
     } else if (stage === "updating") {
-      await handleUpdatingFlow({ business: doc, client: client, message: text });
-      return;
+      await handleUpdatingFlow({ business: doc, client, message: text });
     } else if (stage === "canceling") {
-      await handleCancelingFlow({ business: doc, client: client, message: text });
-      return;
+      await handleCancelingFlow({ business: doc, client, message: text });
     }
 
   } catch (err: any) {
     console.error("Webhook handler error:", err?.message || err);
   }
+}
+
+async function handleLanguageSelection(
+  businessId: mongoose.Types.ObjectId,
+  phone: string,
+  payload: string,
+  profileName?: string
+) {
+  const langMap: Record<string, "he" | "en" | "ru" | "fr"> = {
+    lang_en: "en",
+    lang_ru: "ru",
+    lang_fr: "fr",
+    lang_he: "he"
+  };
+
+  const language = langMap[payload];
+  if (!language) {
+    console.warn("Invalid language payload received:", payload);
+    return;
+  }
+
+  console.log(`Language selected by ${phone}: ${language}`);
+
+  const client = await getOrCreateClient(businessId, phone, new Date(), language, profileName);
+  const business = await Business.findOne({ _id: businessId });
+
+  if (!business) {
+    console.error("Business not found:", businessId);
+    return;
+  }
+
+  await sendWelcomeMessage(business._id, phone, language);
+  await updateClientStage(client._id, "idle");
 }

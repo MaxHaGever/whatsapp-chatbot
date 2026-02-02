@@ -3,5 +3,5 @@ import { sendWhatsAppMessage } from "../service/sendWhatsAppMessage";
 
 export async function handleCancelingFlow(context: FlowContext) {
   const { business, client, message } = context;
-  sendWhatsAppMessage(business.phoneId, client.phone, "Canceling flow");
+  sendWhatsAppMessage(business._id, client.phone, "Canceling flow");
 }
