@@ -1,17 +1,18 @@
 import axios from "axios";
 import Business from "../models/Business";
+import mongoose from "mongoose";
 
-export async function sendWhatsAppMessage(phoneId: string, to: string, text: string) {
-  const token = (await Business.findOne({ phoneId }))?.token;
-  if (!token) {
-    console.error("No token found for phoneId:", phoneId);
+export async function sendWhatsAppMessage(business: mongoose.Types.ObjectId, to: string, text: string) {
+  const sendingBusiness = (await Business.findOne({ _id: business }))
+  if (!sendingBusiness?. token) {
+    console.error("No token found for business:", business);
     return;
   }
 
   const version = process.env.GRAPH_VERSION || "v19.0";
-  const url = `https://graph.facebook.com/${version}/${phoneId}/messages`;
+  const url = `https://graph.facebook.com/${version}/${sendingBusiness.phoneId}/messages`;
   const headers = {
-    Authorization: `Bearer ${token}`,
+    Authorization: `Bearer ${sendingBusiness.token}`,
     "Content-Type": "application/json"
   };
 
@@ -30,19 +31,19 @@ export async function sendWhatsAppMessage(phoneId: string, to: string, text: str
   }
 }
 
-export async function sendClientLanguageSelectionMessage(phoneId: string, to: string) {
-  const business = await Business.findOne({ phoneId });
+export async function sendClientLanguageSelectionMessage(business: mongoose.Types.ObjectId, to: string) {
+  const sendingBusiness = await Business.findOne({ _id: business });
 
-  if (!business?.token) {
-    console.error("No token found for phoneId:", phoneId);
+  if (!sendingBusiness?.token) {
+    console.error("No token found for business:", business);
     return;
   }
 
   const version = process.env.GRAPH_VERSION || "v19.0";
-  const url = `https://graph.facebook.com/${version}/${phoneId}/messages`;
+  const url = `https://graph.facebook.com/${version}/${sendingBusiness.phoneId}/messages`;
 
   const headers = {
-    Authorization: `Bearer ${business.token}`,
+    Authorization: `Bearer ${sendingBusiness.token}`,
     "Content-Type": "application/json"
   };
 

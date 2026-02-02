@@ -60,7 +60,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
 
     if (await isClientFirst(from)) {
       client = await getOrCreateClient(doc._id, from, new Date(), "he", profileName);
-      await sendClientLanguageSelectionMessage(businessPhoneId, from);
+      await sendClientLanguageSelectionMessage(doc._id, from);
     } else {
       client = await handleClientUpsertWithIdleCheck(
         doc._id,
@@ -139,9 +139,13 @@ async function handleLanguageSelection(
   console.log(`Language selected by ${phone}: ${language}`);
 
   const client = await getOrCreateClient(businessId, phone, new Date(), language, profileName);
+  const business = await Business.findOne({ _id: businessId });
 
-  await updateClientStage(client._id, "welcome");
+  if (!business) {
+    console.error("Business not found:", businessId);
+    return;
+  }
 
-  await sendWhatsAppMessage(client.businessId.toString(), phone, `Language set to ${language.toUpperCase()}.`);
-  await sendWelcomeMessage(client.businessId.toString(), phone, "Thanks for selecting your language. How can I help you?");
+  await sendWelcomeMessage(business._id, phone, language);
+  await updateClientStage(client._id, "idle");
 }
