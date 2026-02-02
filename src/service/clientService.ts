@@ -80,12 +80,14 @@ export async function handleClientUpsertWithIdleCheck(
 
   if (!client) {
     client = await Client.create({
-      businessId,
-      phone,
-      lastInteraction: now,
-      name: profileName,
-      stage: resetStage
-    });
+  businessId,
+  phone,
+  lastInteraction: now,
+  name: profileName,
+  stage: resetStage,
+  language: "he", // ✅ default value if unknown
+});
+
 
     console.log(`🆕 New client created: ${phone}`);
     return client;
