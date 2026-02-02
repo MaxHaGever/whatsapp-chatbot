@@ -69,10 +69,10 @@ export async function sendClientLanguageSelectionMessage(business: mongoose.Type
           {
             title: "Available Languages",
             rows: [
-              { id: "lang_he", title: "עברית", description: "Hebrew" },
-              { id: "lang_en", title: "English", description: "English" },
-              { id: "lang_ru", title: "Русский", description: "Russian" },
-              { id: "lang_fr", title: "Français", description: "French" }
+              { id: "lang_he", title: "עברית"},
+              { id: "lang_en", title: "English"},
+              { id: "lang_ru", title: "Русский"},
+              { id: "lang_fr", title: "Français"}
             ]
           }
         ]

@@ -13,10 +13,10 @@ export async function sendWelcomeMessage(business: mongoose.Types.ObjectId, from
   const businessName = sendingBusiness.name || "העסק שלנו";
 
   const messages: Record<string, string> = {
-    he: `👋 שלום וברוך הבא ל־${businessName}!\n\nאני בוט קטן שעוזר לך לקבוע, לעדכן או לבטל פגישה.\nשלח לי הודעה בחינם 😊`,
-    en: `👋 Hi and welcome to ${businessName}!\n\nI'm a helpful little bot that can help you schedule, update, or cancel an appointment.\nJust message me for free 😊`,
-    ru: `👋 Добро пожаловать в ${businessName}!\n\nЯ бот, который поможет вам записаться, изменить или отменить встречу.\nНапишите мне бесплатно 😊`,
-    fr: `👋 Bienvenue chez ${businessName} !\n\nJe suis un petit bot prêt à vous aider à programmer, modifier ou annuler un rendez-vous.\nÉcrivez-moi gratuitement 😊`,
+    he: `👋 שלום וברוך הבא ל־${businessName}!\n\n🤖 אני בוט לקביעת תורים.\nאפשר לכתוב לי בצורה חופשית מה תרצו לעשות – לקבוע פגישה, לעדכן או לבטל.`,
+    en: `👋 Hi and welcome to ${businessName}!\n\n🤖 I'm an appointment scheduling bot.\nYou can write freely what you'd like to do — book, update, or cancel an appointment.`,
+    ru: `👋 Добро пожаловать в ${businessName}!\n\n🤖 Я бот для записи на приём.\nВы можете свободно написать, что хотите сделать — записаться, изменить или отменить встречу.`,
+    fr: `👋 Bienvenue chez ${businessName} !\n\n🤖 Je suis un bot de prise de rendez-vous.\nVous pouvez écrire librement ce que vous souhaitez faire — prendre, modifier ou annuler un rendez-vous.`
   };
 
   const message = messages[language] || messages["he"]; // fallback to Hebrew
