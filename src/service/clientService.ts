@@ -3,6 +3,11 @@ import Client from "../models/Client";
 import { DateTime } from "luxon";
 import type { ClientStage } from "../models/Client";
 
+/**
+ * Creates a client ONLY if it does not exist.
+ * - language is set ONLY on insert
+ * - name is set ONLY on insert
+ */
 export async function getOrCreateClient(
   businessId: mongoose.Types.ObjectId,
   phone: string,
@@ -10,6 +15,12 @@ export async function getOrCreateClient(
   language: string = "he",
   profileName?: string
 ) {
+  // 🔒 Safety guard
+  const allowedLanguages = ["he", "en", "ru", "fr"];
+  if (!allowedLanguages.includes(language)) {
+    throw new Error(`Invalid language value: ${language}`);
+  }
+
   return Client.findOneAndUpdate(
     { businessId, phone },
     {
@@ -18,13 +29,20 @@ export async function getOrCreateClient(
         phone,
         lastInteraction,
         language,
-      },
-      ...(profileName ? { $set: { name: profileName } } : {}),
+        ...(profileName ? { name: profileName } : {})
+      }
     },
-    { upsert: true, new: true }
+    {
+      upsert: true,
+      new: true,
+      runValidators: true
+    }
   );
 }
 
+/**
+ * Updates the conversation stage safely
+ */
 export async function updateClientStage(
   clientId: mongoose.Types.ObjectId,
   newStage: ClientStage
@@ -43,6 +61,10 @@ export async function updateClientStage(
   );
 }
 
+/**
+ * Handles idle timeout logic
+ * - DOES NOT touch language
+ */
 export async function handleClientUpsertWithIdleCheck(
   businessId: mongoose.Types.ObjectId,
   phone: string,
@@ -62,7 +84,7 @@ export async function handleClientUpsertWithIdleCheck(
       phone,
       lastInteraction: now,
       name: profileName,
-      stage: resetStage,
+      stage: resetStage
     });
 
     console.log(`🆕 New client created: ${phone}`);
@@ -83,9 +105,11 @@ export async function handleClientUpsertWithIdleCheck(
   return client;
 }
 
+/**
+ * Checks if this phone exists for ANY business
+ * (You may later want to scope this by businessId)
+ */
 export async function isClientFirst(phone: string): Promise<boolean> {
   const client = await Client.findOne({ phone });
-  if(client)
-    return false;
-  return true;
+  return !client;
 }
