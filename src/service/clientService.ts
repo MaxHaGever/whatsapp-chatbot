@@ -3,22 +3,36 @@ import Client from "../models/Client";
 import { DateTime } from "luxon";
 import type { ClientStage } from "../models/Client";
 
+interface ClientInitParams {
+  businessId: mongoose.Types.ObjectId;
+  phone: string;
+  lastInteraction: Date;
+  language?: "he" | "en" | "ru" | "fr";
+  profileName?: string;
+}
+
 /**
- * Creates a client ONLY if it does not exist.
- * - language is set ONLY on insert
- * - name is set ONLY on insert
+ * Safely creates a client or returns existing one
  */
-export async function getOrCreateClient(
-  businessId: mongoose.Types.ObjectId,
-  phone: string,
-  lastInteraction: Date,
-  language: string = "he",
-  profileName?: string
-) {
-  // 🔒 Safety guard
+export async function getOrCreateClient({
+  businessId,
+  phone,
+  lastInteraction,
+  language = "he",
+  profileName
+}: ClientInitParams) {
+  // 🔍 DEBUG LOGGING
+  console.log("getOrCreateClient called with:", {
+    businessId,
+    phone,
+    lastInteraction,
+    language,
+    profileName
+  });
+
   const allowedLanguages = ["he", "en", "ru", "fr"];
   if (!allowedLanguages.includes(language)) {
-    throw new Error(`Invalid language value: ${language}`);
+    throw new Error(`❌ Invalid language: "${language}"`);
   }
 
   return Client.findOneAndUpdate(
@@ -41,29 +55,7 @@ export async function getOrCreateClient(
 }
 
 /**
- * Updates the conversation stage safely
- */
-export async function updateClientStage(
-  clientId: mongoose.Types.ObjectId,
-  newStage: ClientStage
-) {
-  const client = await Client.findById(clientId);
-  if (!client) return;
-  if (client.stage === newStage) return;
-
-  console.log(
-    `Stage change for ${client.phone}: ${client.stage} → ${newStage}`
-  );
-
-  return Client.updateOne(
-    { _id: clientId },
-    { $set: { stage: newStage } }
-  );
-}
-
-/**
- * Handles idle timeout logic
- * - DOES NOT touch language
+ * Handles idle logic and client upsert
  */
 export async function handleClientUpsertWithIdleCheck(
   businessId: mongoose.Types.ObjectId,
@@ -79,15 +71,19 @@ export async function handleClientUpsertWithIdleCheck(
   let client = await Client.findOne({ businessId, phone });
 
   if (!client) {
-    client = await Client.create({
-  businessId,
-  phone,
-  lastInteraction: now,
-  name: profileName,
-  stage: resetStage,
-  language: "he", // ✅ default value if unknown
-});
+    const newClient = {
+      businessId,
+      phone,
+      lastInteraction: now,
+      name: profileName,
+      stage: resetStage,
+      language: "he"
+    };
 
+    // 🔍 DEBUG LOGGING
+    console.log("Creating new client with:", newClient);
+
+    client = await Client.create(newClient);
 
     console.log(`🆕 New client created: ${phone}`);
     return client;
@@ -108,10 +104,27 @@ export async function handleClientUpsertWithIdleCheck(
 }
 
 /**
- * Checks if this phone exists for ANY business
- * (You may later want to scope this by businessId)
+ * Checks if a phone is a first-time client
  */
 export async function isClientFirst(phone: string): Promise<boolean> {
   const client = await Client.findOne({ phone });
   return !client;
+}
+
+export async function updateClientStage(
+  clientId: mongoose.Types.ObjectId,
+  newStage: ClientStage
+) {
+  const client = await Client.findById(clientId);
+  if (!client) return;
+  if (client.stage === newStage) return;
+
+  console.log(
+    `Stage change for ${client.phone}: ${client.stage} → ${newStage}`
+  );
+
+  return Client.updateOne(
+    { _id: clientId },
+    { $set: { stage: newStage } }
+  );
 }

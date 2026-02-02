@@ -50,16 +50,24 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     let client;
 
     if (await isClientFirst(from)) {
-  client = await getOrCreateClient(doc._id, from, new Date(), "he", profileName);
+  client = await getOrCreateClient({
+    businessId: doc._id,
+    phone: from,
+    lastInteraction: new Date(),
+    language: "he",
+    profileName
+  });
+
   await sendClientLanguageSelectionMessage(businessPhoneId, from);
-    } else {
-         client = await handleClientUpsertWithIdleCheck(
+} else {
+  client = await handleClientUpsertWithIdleCheck(
     doc._id,
     from,
-    profileName,   
-    "welcome"  
+    profileName,
+    "welcome"
   );
-    }
+}
+
 
    
 
@@ -114,15 +122,32 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
   }
 }
 
-async function handleLanguageSelection(businessId: mongoose.Types.ObjectId, phone: string, payload: string, profileName?: string) {
-    const selectedLanguage = payload;
-    const langMap: Record<string, string> = {
-        lang_ru: "ru",
-        lang_fr: "fr",
-        lang_he: "he"
-      };
-      const language = langMap[selectedLanguage];
-      console.log(`Language set for ${phone}: ${language}`);
-      await getOrCreateClient(businessId, phone, new Date(), language, profileName);
+async function handleLanguageSelection(
+  businessId: mongoose.Types.ObjectId,
+  phone: string,
+  payload: string,
+  profileName?: string
+) {
+  const langMap: Record<string, "he" | "en" | "ru" | "fr"> = {
+    lang_ru: "ru",
+    lang_fr: "fr",
+    lang_he: "he"
+  };
 
+  const language = langMap[payload];
+  if (!language) {
+    console.warn(`Invalid language payload: ${payload}`);
+    return;
+  }
+
+  console.log(`Language set for ${phone}: ${language}`);
+
+  await getOrCreateClient({
+    businessId,
+    phone,
+    lastInteraction: new Date(),
+    language,
+    profileName
+  });
 }
+
