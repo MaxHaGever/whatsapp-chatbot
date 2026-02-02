@@ -48,9 +48,8 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     const client = await handleClientUpsertWithIdleCheck(
     doc._id,
     from,
-    profileName,
-    15,         // idle threshold in minutes
-    "welcome"  // stage to reset to
+    profileName,   
+    "welcome"  
   );
 
     const text = msg?.text?.body?.trim();

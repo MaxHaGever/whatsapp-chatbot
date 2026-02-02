@@ -45,10 +45,13 @@ export async function handleClientUpsertWithIdleCheck(
   businessId: mongoose.Types.ObjectId,
   phone: string,
   profileName?: string,
-  idleThresholdMinutes: number = 15,
   resetStage: ClientStage = "welcome"
 ) {
   const now = new Date();
+  const idleThresholdMinutes = process.env.IDLE_THRESHOLD_MINUTES
+    ? parseInt(process.env.IDLE_THRESHOLD_MINUTES, 10)
+    : 15;
+
   let client = await Client.findOne({ businessId, phone });
 
   if (!client) {
@@ -68,11 +71,6 @@ export async function handleClientUpsertWithIdleCheck(
   const diffMinutes = DateTime.now().diff(last, "minutes").minutes;
 
   if (diffMinutes >= idleThresholdMinutes) {
-    console.log(
-      `⏱ Client ${phone} idle for ${diffMinutes.toFixed(
-        1
-      )} mins → resetting stage to "${resetStage}"`
-    );
     client.stage = resetStage;
   }
 
