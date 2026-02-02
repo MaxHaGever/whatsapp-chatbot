@@ -1,15 +1,15 @@
 import type { Request, Response } from "express";
 import Business from "../models/Business";   
-import { sendWhatsAppMessage } from "./sendWhatsAppMessage";  
+import { sendWhatsAppMessage , sendClientLanguageSelectionMessage } from "./sendWhatsAppMessage";  
 import { isResetCommand } from "../rules/textCommands";
-import { getOrCreateClient , handleClientUpsertWithIdleCheck, updateClientStage } from "./clientService";
+import { getOrCreateClient , handleClientUpsertWithIdleCheck, isClientFirst, updateClientStage } from "./clientService";
 import { extractIntentWithFallback } from "../utils/extractIntentWithFallback";
 import { sendWelcomeMessage } from "../messages/welcomeMessage";
 import { intentToStageMap } from "../utils/intentStageMap";
 import { handleBookingFlow } from "../flows/bookingFlow";
 import { handleUpdatingFlow } from "../flows/updatingFlow";
 import { handleCancelingFlow } from "../flows/cancelingFlow";
-import { DateTime } from "luxon";
+import mongoose from "mongoose";
 
 export function verifyWebhook(req: Request, res: Response) {
   const mode = req.query["hub.mode"];
@@ -40,17 +40,28 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     const msg = value?.messages?.[0];
     const from = msg?.from;
     if (!from) return;
-
-    if (msg?.type !== "text") return;
-
     const profileName = value?.contacts?.[0]?.profile?.name;
+    if(msg?.type === "button"){
+      await handleLanguageSelection(doc._id, from, msg.button.payload, profileName);
+      return;
+    }
+    if (msg?.type !== "text") return;
+    
+    let client;
 
-    const client = await handleClientUpsertWithIdleCheck(
+    if(await isClientFirst(from)){
+      client = await getOrCreateClient(doc._id, from, new Date(), profileName);
+      await sendClientLanguageSelectionMessage(businessPhoneId , from);
+    } else {
+         client = await handleClientUpsertWithIdleCheck(
     doc._id,
     from,
     profileName,   
     "welcome"  
   );
+    }
+
+   
 
     const text = msg?.text?.body?.trim();
     if (!text) return;
@@ -101,4 +112,18 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
   } catch (err: any) {
     console.error("Webhook handler error:", err?.message || err);
   }
+}
+
+async function handleLanguageSelection(businessId: mongoose.Types.ObjectId, phone: string, payload: string, profileName?: string) {
+    const selectedLanguage = payload;
+    const langMap: Record<string, string> = {
+        lang_en: "en",
+        lang_ru: "ru",
+        lang_fr: "fr",
+        lang_he: "he"
+      };
+      const language = langMap[selectedLanguage];
+      console.log(`Language set for ${phone}: ${language}`);
+      await getOrCreateClient(businessId, phone, new Date(), language, profileName);
+
 }

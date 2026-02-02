@@ -7,6 +7,7 @@ export async function getOrCreateClient(
   businessId: mongoose.Types.ObjectId,
   phone: string,
   lastInteraction: Date,
+  language: string = "he",
   profileName?: string
 ) {
   return Client.findOneAndUpdate(
@@ -16,6 +17,7 @@ export async function getOrCreateClient(
         businessId,
         phone,
         lastInteraction,
+        language,
       },
       ...(profileName ? { $set: { name: profileName } } : {}),
     },
@@ -79,4 +81,11 @@ export async function handleClientUpsertWithIdleCheck(
 
   await client.save();
   return client;
+}
+
+export async function isClientFirst(phone: string): Promise<boolean> {
+  const client = await Client.findOne({ phone });
+  if(client)
+    return false;
+  return true;
 }

@@ -1,5 +1,5 @@
 import { Schema, model, Document, Types } from 'mongoose';
-export const CLIENT_STAGES = [ "welcome" ,"idle", "booking", "updating", "canceling"] as const;
+export const CLIENT_STAGES = [ "first", "welcome" ,"idle", "booking", "updating", "canceling"] as const;
 export type ClientStage = (typeof CLIENT_STAGES)[number];
 
 export interface IClient extends Document {
@@ -8,6 +8,7 @@ export interface IClient extends Document {
     businessId: Types.ObjectId;
     stage: ClientStage;
     lastInteraction: Date;
+    language: string;
 }
 
 const ClientSchema = new Schema<IClient>(
@@ -15,8 +16,9 @@ const ClientSchema = new Schema<IClient>(
         name: { type: String, trim: true },
         phone: { type: String, required: true, trim: true },
         businessId: { type: Schema.Types.ObjectId, required: true, ref: 'Business' },
-        stage: { type: String, enum: CLIENT_STAGES, default: "welcome" },
+        stage: { type: String, enum: CLIENT_STAGES, default: "first" },
         lastInteraction: { type: Date, default: Date.now },
+        language: { type: String, enum: [ "he","en", "ru", "fr"], default: "he" }
     },
     {
         timestamps: true,
