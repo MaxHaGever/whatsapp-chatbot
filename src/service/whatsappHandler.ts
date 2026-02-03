@@ -80,7 +80,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     if (!text) return;
 
     if (isResetCommand(text)) {
-      await sendWelcomeMessage(businessPhoneId, from, doc.welcome);
+      await sendWelcomeMessage(doc._id, from, doc.welcome);
       await updateClientStage(client._id, "idle");
       return;
     }
@@ -88,7 +88,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     let stage = client.stage;
 
     if (stage === "welcome") {
-      await sendWelcomeMessage(businessPhoneId, from, doc.welcome);
+      await sendWelcomeMessage(doc._id, from, doc.welcome);
       await updateClientStage(client._id, "idle");
       return;
     }
