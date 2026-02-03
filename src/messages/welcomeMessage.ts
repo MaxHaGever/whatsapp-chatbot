@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { sendWhatsAppMessage } from "../service/sendWhatsAppMessage";
-import { Business } from "../models/Business";
+import  Business  from "../models/Business";
 
 export async function sendWelcomeMessage(business: mongoose.Types.ObjectId, from: string, language: string) {
   const sendingBusiness = await Business.findOne({ _id: business });

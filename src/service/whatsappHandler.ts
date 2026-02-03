@@ -99,7 +99,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
 
       if (intent === "unknown" || confidence < 0.6) {
         await updateClientStage(client._id, "idle");
-        await sendWhatsAppMessage(businessPhoneId, from, "Sorry, I didn't understand that.");
+        await sendWhatsAppMessage(doc._id, from, "Sorry, I didn't understand that.");
         return;
       }
 
