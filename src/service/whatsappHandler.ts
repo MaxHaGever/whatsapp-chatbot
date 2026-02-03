@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import Business from "../models/Business";
+import CalendarSettings from "../models/CalendarSettings";
 import { sendWhatsAppMessage, sendClientLanguageSelectionMessage } from "./sendWhatsAppMessage";
 import { isResetCommand } from "../rules/textCommands";
 import {
@@ -15,6 +16,7 @@ import { handleBookingFlow } from "../flows/bookingFlow";
 import { handleUpdatingFlow } from "../flows/updatingFlow";
 import { handleCancelingFlow } from "../flows/cancelingFlow";
 import mongoose from "mongoose";
+import { ensureCalendarSettings } from "./calendarService";
 
 export function verifyWebhook(req: Request, res: Response) {
   const mode = req.query["hub.mode"];
@@ -40,6 +42,10 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
 
     const doc = await Business.findOne({ phoneId: businessPhoneId });
     if (!doc) return;
+    const hasSettings = await CalendarSettings.exists({ businessId: doc._id });
+    if (!hasSettings) {
+    await ensureCalendarSettings(doc._id);
+}
 
     const msg = value?.messages?.[0];
     const from = msg?.from;

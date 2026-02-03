@@ -1,4 +1,4 @@
-import { Schema } from 'mongoose';
+import { model, Schema } from 'mongoose';
 
 const AvailabilityDaySchema = new Schema({
     businessId: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
@@ -12,3 +12,5 @@ const AvailabilityDaySchema = new Schema({
 }, { timestamps: true });
 
 AvailabilityDaySchema.index({ businessId: 1, date: 1 }, { unique: true });
+
+export default model("AvailabilityDay", AvailabilityDaySchema);
