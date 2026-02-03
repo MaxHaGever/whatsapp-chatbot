@@ -1,13 +1,16 @@
 import type { Request, Response } from "express";
 import Business from "../models/Business";
 import CalendarSettings from "../models/CalendarSettings";
-import { sendWhatsAppMessage, sendClientLanguageSelectionMessage } from "./sendWhatsAppMessage";
+import {
+  sendWhatsAppMessage,
+  sendClientLanguageSelectionMessage,
+} from "./sendWhatsAppMessage";
 import { isResetCommand } from "../rules/textCommands";
 import {
   getOrCreateClient,
   handleClientUpsertWithIdleCheck,
   isClientFirst,
-  updateClientStage
+  updateClientStage,
 } from "./clientService";
 import { extractIntentWithFallback } from "../utils/extractIntentWithFallback";
 import { sendWelcomeMessage } from "../messages/welcomeMessage";
@@ -17,6 +20,7 @@ import { handleUpdatingFlow } from "../flows/updatingFlow";
 import { handleCancelingFlow } from "../flows/cancelingFlow";
 import mongoose from "mongoose";
 import { ensureCalendarSettings } from "./calendarService";
+import { ensureAvailabilityDays } from "./availabilityDaysService"; // <-- adjust path if needed
 
 export function verifyWebhook(req: Request, res: Response) {
   const mode = req.query["hub.mode"];
@@ -42,10 +46,15 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
 
     const doc = await Business.findOne({ phoneId: businessPhoneId });
     if (!doc) return;
+
+    // ✅ ensure settings once
     const hasSettings = await CalendarSettings.exists({ businessId: doc._id });
     if (!hasSettings) {
-    await ensureCalendarSettings(doc._id);
-}
+      await ensureCalendarSettings(doc._id);
+    }
+
+    // ✅ keep rolling window warm (safe to call every time)
+    await ensureAvailabilityDays(doc._id, 14);
 
     const msg = value?.messages?.[0];
     const from = msg?.from;
@@ -68,19 +77,15 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
       client = await getOrCreateClient(doc._id, from, new Date(), "he", profileName);
       await sendClientLanguageSelectionMessage(doc._id, from);
     } else {
-      client = await handleClientUpsertWithIdleCheck(
-        doc._id,
-        from,
-        profileName,
-        "welcome"
-      );
+      client = await handleClientUpsertWithIdleCheck(doc._id, from, profileName, "welcome");
     }
 
     const text = msg?.text?.body?.trim();
     if (!text) return;
 
     if (isResetCommand(text)) {
-      await sendWelcomeMessage(doc._id, from, doc.welcome);
+      // ✅ sendWelcomeMessage expects LANGUAGE, not doc.welcome
+      await sendWelcomeMessage(doc._id, from, (client as any)?.language || "he");
       await updateClientStage(client._id, "idle");
       return;
     }
@@ -88,7 +93,7 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     let stage = client.stage;
 
     if (stage === "welcome") {
-      await sendWelcomeMessage(doc._id, from, doc.welcome);
+      await sendWelcomeMessage(doc._id, from, (client as any)?.language || "he");
       await updateClientStage(client._id, "idle");
       return;
     }
@@ -117,7 +122,6 @@ export async function handleWhatsappWebhook(req: Request, res: Response) {
     } else if (stage === "canceling") {
       await handleCancelingFlow({ business: doc, client, message: text });
     }
-
   } catch (err: any) {
     console.error("Webhook handler error:", err?.message || err);
   }
@@ -133,7 +137,7 @@ async function handleLanguageSelection(
     lang_en: "en",
     lang_ru: "ru",
     lang_fr: "fr",
-    lang_he: "he"
+    lang_he: "he",
   };
 
   const language = langMap[payload];
