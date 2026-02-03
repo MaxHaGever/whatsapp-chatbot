@@ -12,3 +12,20 @@ export function makeAllTrueBitset(slotCount: number): Buffer {
 
   return buf;
 }
+
+export function setBit(buf: Buffer, i: number, value: boolean): void {
+  const byteIndex = i >> 3;
+  const bitIndex = i & 7;
+  const mask = 1 << bitIndex;
+
+  if (value) buf[byteIndex] |= mask;   // set to 1
+  else buf[byteIndex] &= ~mask;        // set to 0
+}
+
+export function getBit(buf: Buffer, i: number): boolean {
+  const byteIndex = i >> 3;
+  const bitIndex = i & 7;
+  const mask = 1 << bitIndex;
+
+  return (buf[byteIndex] & mask) !== 0;
+}

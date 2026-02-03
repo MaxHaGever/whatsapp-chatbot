@@ -8,6 +8,10 @@ export async function connectMongo() {
     throw new Error("Missing env var: MONGO_URI");
   }
 
+
+  console.log("Mongo URI host:", uri.split("@")[1]?.split("/")[0]);
+
+
   await mongoose.connect(uri);
   console.log("✅ MongoDB connected");
   try {
@@ -15,6 +19,7 @@ export async function connectMongo() {
   } catch (error) {
     console.error("Error creating test business:", error);
   }
+  
 }
 
 
