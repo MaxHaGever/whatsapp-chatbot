@@ -1,11 +1,15 @@
 import { Request, Response } from "express";
 import { Types } from "mongoose";
 import { setAvailabilityRange } from "../service/availabilityService";
+import { ensureAvailabilityDays } from "../service/availabilityDaysService";
 
 export async function patchAvailabilityRange(req: Request, res: Response) {
   try {
+    // --- businessId param (string | string[] -> string) ---
     const businessIdParam = req.params.businessId;
-    const businessIdStr = Array.isArray(businessIdParam) ? businessIdParam[0] : businessIdParam;
+    const businessIdStr = Array.isArray(businessIdParam)
+      ? businessIdParam[0]
+      : businessIdParam;
 
     if (typeof businessIdStr !== "string" || !Types.ObjectId.isValid(businessIdStr)) {
       return res.status(400).json({ error: "Invalid businessId" });
@@ -13,6 +17,7 @@ export async function patchAvailabilityRange(req: Request, res: Response) {
 
     const businessId = new Types.ObjectId(businessIdStr);
 
+    // --- date param (string | string[] -> string) ---
     const dateParam = req.params.date;
     const date = Array.isArray(dateParam) ? dateParam[0] : dateParam;
 
@@ -39,6 +44,9 @@ export async function patchAvailabilityRange(req: Request, res: Response) {
     if (finalToMin === null) {
       return res.status(400).json({ error: "Provide toMin or durationMin" });
     }
+
+    // ✅ IMPORTANT: guarantee rolling window exists before toggling
+    await ensureAvailabilityDays(businessId, 14);
 
     await setAvailabilityRange({
       businessId,
